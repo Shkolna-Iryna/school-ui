@@ -36,11 +36,11 @@ const Register = () => {
   }, []);
   const onSubmit = async (data) => {
     try {
-      await fetchWithAuth("/register", {
+      const response = await fetchWithAuth("/register", {
         method: "POST",
         body: JSON.stringify(data),
       });
-
+      localStorage.setItem("access_token", response.access_token);
       alert("Реєстрація успішна");
 
       navigate("/sub");

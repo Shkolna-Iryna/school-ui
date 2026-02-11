@@ -1,16 +1,13 @@
 import React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Typography from "@mui/material/Typography";
-import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import { fetchWithAuth } from "./helpers/api";
 import TabPanel from "./TabPanel";
 import { AppBar } from "@mui/material";
-import Toolbar from "@mui/material/Toolbar";
 import Fab from "@mui/material/Fab";
-import { styled } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
 import IconButton from "@mui/material/IconButton";
@@ -19,6 +16,9 @@ import CloseIcon from "@mui/icons-material/Close";
 import { Link } from "react-router-dom";
 import { InputAdornment } from "@mui/material";
 import ClearIcon from "@mui/icons-material/Clear";
+import CircularProgress from "@mui/material/CircularProgress";
+import AddToPhotosIcon from '@mui/icons-material/AddToPhotos';
+import SendIcon from '@mui/icons-material/Send';
 
 export default function ColorTabs() {
   const [subjects, setSubjects] = useState([]);
@@ -30,30 +30,58 @@ export default function ColorTabs() {
   const [blur, setBlur] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [text, setText] = useState("");
+  const [files, setFiles] = useState([]);
+  const editorRef = useRef(null);
+  const [previews, setPreviews] = useState([]);
+  const [testResult, setTestResult] = useState("");
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const fetchTasks = async () => {
-    const data = await fetchWithAuth(`/tasks/tasks/${task_id}/correct`);
-    setMessages(data);
+  const handleFiles = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+
+    setFiles((prev) => [...prev, ...selectedFiles]);
+
+    // Генеруємо прев’ю
+    selectedFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPreviews((prev) => [...prev, reader.result]);
+      };
+      reader.readAsDataURL(file);
+    });
   };
+  const OpenChange = () => {
+    setError("");
+    setOpen(true);
+
+  };
+  const CloseChange = () => {
+    setOpen(false);
+    setError("");
+  }
+
   useEffect(() => {
     let cancelled = false;
 
     const loadSubjects = async () => {
       setLoading(true);
       setError("");
-
       try {
         const data = await fetchWithAuth("/subjects");
         const arr = Array.isArray(data) ? data : [];
-
         const safe = arr.filter((s) => s?.id != null);
+        console.log("safe", safe);
 
         if (!cancelled) {
           setSubjects(safe);
 
-          // дефолтно вибрати перший предмет
           if (safe.length > 0) setValue(String(safe[0].id));
-          else setValue(false);
+          else setValue("");
+
         }
       } catch (e) {
         if (!cancelled)
@@ -69,31 +97,114 @@ export default function ColorTabs() {
       cancelled = true;
     };
   }, []);
-
   const handleChange = (event, newValue) => {
     setValue(String(newValue));
   };
+
   const handleSubmit = async () => {
-    if (!taskText.trim()) {
-      alert("Введіть текст задачі!");
+    try {
+      const text = editorRef.current?.textContent;
+
+      if (!text.trim()) {
+        alert("Контент порожній");
+        return;
+      }
+
+      setSubmitting(true); // 🔥 старт спінера
+
+      const modData = await fetchWithAuth("/ai/moderation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+
+      if (modData?.flagged) {
+        setError("Текст не дозволено використовувати");
+        setSubmitting(false);
+        return;
+      }
+
+      const body = new FormData();
+      body.append("task", text);
+      body.append("subject_id", value);
+      files.forEach((file) => body.append("photos", file));
+
+      await fetchWithAuth("/tasks", {
+        method: "POST",
+        body,
+      });
+
+      editorRef.current.innerHTML = "";
+      setFiles([]);
+      setError("");
+      setPreviews([]);
+      setOpen(false);
+      setRefreshKey((v) => v + 1);
+
+    } catch (err) {
+      console.error(err);
+      alert("Сталася помилка при збереженні: " + err.message);
+    } finally {
+      setSubmitting(false); // 🔥 зупиняємо спінер
+    }
+  };
+
+
+  const createSubject = async (title) => {
+    return await fetchWithAuth("/subjects", {
+      method: "POST",
+      body: JSON.stringify({ title }),
+    });
+  };
+
+  const handleCreate = async () => {
+    if (!title.trim()) {
+      setMessage("Введіть назву предмета");
       return;
     }
 
     try {
-      await fetchWithAuth("/tasks", {
+      const res = await createSubject(title);
+
+      // 🔥 Додаємо новий предмет у список
+      setSubjects(prev => [...prev, res]);
+
+      setMessage("Предмет створено ✅");
+      setTitle("");
+
+    } catch (error) {
+      setMessage("Помилка створення ❌");
+      console.error(error);
+    }
+  };
+  const handleGenerateTest = async () => {
+    try {
+      setError("");
+      setLoading(true);
+
+      const response = await fetchWithAuth("/ai/generate-test", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          task: taskText,
-          subject_id: value,
+          text: text,              // текст з інпуту
+          questions_count: 10       // кількість питань
         }),
       });
 
-      setTaskText("");
-      setOpen(false); // закрити модалку
-      fetchTasks();
-    } catch (error) {
-      console.error("Помилка при збереженні:", error);
-      alert("Сталася помилка при збереженні");
+      if (response.error) {
+        setError(response.error);
+        return;
+      }
+
+      const parsedTest = JSON.parse(response.test);
+      setTest(parsedTest);
+
+    } catch (err) {
+      setError("Помилка генерації тесту");
+    } finally {
+      setLoading(false);
     }
   };
   return (
@@ -112,7 +223,15 @@ export default function ColorTabs() {
         </Typography>
 
         {loading && (
-          <Box sx={{ display: "flex", marginTop: 2, fontSize: 25 }}></Box>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              marginTop: 2,
+            }}
+          >
+            <CircularProgress />
+          </Box>
         )}
 
         {!loading && error && <Alert severity="error">{error}</Alert>}
@@ -135,10 +254,17 @@ export default function ColorTabs() {
                   fontFamily: "Roboto",
                   fontSize: 20,
                 }}
+
               />
             ))}
           </Tabs>
+
         )}
+        <TextField placeholder="Додати предмет" value={title}
+          onChange={(e) => setTitle(e.target.value)} sx={{ mt: 2, width: "50" }}>
+        </TextField>
+        <IconButton onClick={handleCreate}
+        ><SendIcon sx={{ color: "black", mt: 3 }} /></IconButton>
       </Box>
 
       <AppBar
@@ -161,9 +287,6 @@ export default function ColorTabs() {
               mt: "20px",
               ml: "20px",
               fontWeight: 800,
-              textTransform: "none",
-              boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
-              "&:hover": { backgroundColor: "#222" },
             }}
           >
             Рейтинг
@@ -198,7 +321,7 @@ export default function ColorTabs() {
                       size="small"
                       onClick={() => {
                         setSearchText("");
-                        setAppliedSearch(""); // ✅ очистити фільтр
+                        setAppliedSearch("");
                       }}
                     >
                       <ClearIcon fontSize="small" />
@@ -217,81 +340,158 @@ export default function ColorTabs() {
           />
         </Box>
       </AppBar>
-      <Modal open={open}>
-        <>
+
+      <Modal open={open} onClose={CloseChange}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 450,
+            height: 400,
+            bgcolor: "background.paper",
+            borderRadius: 3,
+            boxShadow: 24,
+            p: 3,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+            <Typography sx={{ fontSize: 22, fontWeight: 700 }}>
+              Нове завдання
+            </Typography>
+          </Box>
+          <Box sx={{ position: "fixed", top: 2, right: 2 }}>
+            <IconButton onClick={CloseChange}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+
           <Box
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            placeholder="Введіть задачу"
             sx={{
-              position: "fixed",
-              inset: 0,
-              backdropFilter: "blur(3px)",
+              minHeight: 150,
+              border: "1px solid #ccc",
+              backgroundColor: "#f3f2f2",
+              p: 1.5,
+              outline: "none",
+              overflowY: "auto",
+              fontSize: 16,
+              fontFamily: "Roboto",
+              "&:empty:before": {
+                content: '"Введіть задачу"',
+                color: "#999",
+                fontFamily: "Roboto"
+
+              },
             }}
           />
 
-          <Box
-            sx={{
-              position: "fixed",
-              width: "500px",
-              height: "400px",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              backgroundColor: "white",
-              borderRadius: "10px",
-              maxWidth: 400,
-            }}
-          >
-            <Button
-              sx={{ color: "black", marginLeft: "350px" }}
-              onClick={() => setOpen(false)}
-            >
-              <CloseIcon />
-            </Button>
-            <Typography
-              sx={{
-                marginTop: "5px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "25px",
-                fontWeight: 700,
-              }}
-            >
-              Нове завдання
-            </Typography>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
-              <TextField
-                multiline
-                placeholder="Введіть задачу"
-                rows={5}
-                value={taskText}
-                onChange={(e) => setTaskText(e.target.value)}
-                variant="filled"
-                sx={{
-                  marginTop: "20px",
-                  width: "350px",
-                }}
-              />
+
+          {previews.length > 0 && (
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              {previews.map((src, i) => (
+                <Box
+                  key={i}
+                  sx={{
+                    position: "relative",
+                    width: 56,
+                    height: 56,
+                    borderRadius: 1,
+                    border: "1px solid #ccc",
+                    overflow: "hidden",
+                  }}
+                >
+                  <img
+                    src={src}
+                    alt={`preview-${i}`}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      // Видаляємо прев’ю за індексом
+                      setPreviews((prev) => prev.filter((_, index) => index !== i));
+                      // Якщо зберігаєш файли окремо, видали і їх з масиву files (якщо є)
+                      setFiles((prev) => prev.filter((_, index) => index !== i));
+                    }}
+                    sx={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      bgcolor: "rgba(255,255,255,0.7)",
+                      "&:hover": { bgcolor: "rgba(255,0,0,0.8)", color: "white" },
+                    }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              ))}
             </Box>
-            <Box sx={{ display: "flex", justifyContent: "center" }}>
-              <Button
-                onClick={handleSubmit}
-                sx={{
-                  backgroundColor: "black",
-                  color: "white",
-                  mt: "10px",
-                }}
-              >
-                Відправити
-              </Button>
-            </Box>
+          )}
+
+          {/* Actions */}
+
+          <Box sx={{ position: "relative" }}>
+            <input
+              type="file"
+              id="upload-photo"
+              hidden
+              multiple
+              accept="image/*"
+              onChange={handleFiles}
+            />
+            <Box sx={{ position: "absolute", right: 0 }}>
+              <IconButton component="label" htmlFor="upload-photo" sx={{ color: "black" }}>
+                <AddToPhotosIcon />
+              </IconButton></Box>
           </Box>
-        </>
+
+          <Box sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center", mt: -2
+          }}>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={submitting}
+              sx={{
+                bgcolor: "black",
+                borderRadius: 1,
+                minWidth: 140,
+                "&:hover": { bgcolor: "#222" },
+              }}
+            >
+              {submitting ? (
+                <CircularProgress size={22} sx={{ color: "white" }} />
+              ) : (
+                "Відправити"
+              )}
+            </Button>
+
+          </Box>
+
+
+          {/* Errors */}
+          {error && (
+            <Typography color="error" fontSize={14}>
+              {error}
+            </Typography>
+          )}
+        </Box>
       </Modal>
+
+
 
       <Box sx={{ flex: 1 }}>
         {subjects.map((subject) => (
@@ -301,12 +501,13 @@ export default function ColorTabs() {
             tabValue={String(subject.id)}
             subjectId={subject.id}
             search={appliedSearch}
+            refreshKey={refreshKey}
           />
         ))}
       </Box>
 
       <Fab
-        onClick={() => setOpen(true)}
+        onClick={OpenChange}
         sx={{
           position: "fixed",
           bottom: 16,

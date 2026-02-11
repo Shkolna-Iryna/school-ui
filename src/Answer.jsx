@@ -1,6 +1,6 @@
 import React from "react";
 import { useParams } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import IconButton from "@mui/material/IconButton";
 import AddIcon from "@mui/icons-material/Add";
 import TextField from "@mui/material/TextField";
@@ -21,6 +21,7 @@ import { Link } from "react-router-dom";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import CircularProgress from "@mui/material/CircularProgress";
+import AddToPhotosIcon from '@mui/icons-material/AddToPhotos';
 
 export default function Answers() {
   const { taskId } = useParams();
@@ -29,7 +30,28 @@ export default function Answers() {
   const [answerText, setAnswerText] = useState("");
   const [correctAnswer, setCorrectAnswer] = useState("");
   const [loadingAnswerId, setLoadingAnswerId] = useState(null);
+  const editorRef = useRef(null);
+  const [previews, setPreviews] = useState([]);
+  const [error, setError] = useState("");
+  const [files, setFiles] = useState([]);
+  const [text, setText] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
+
+  const handleFiles = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+    setFiles((prev) => [...prev, ...selectedFiles]);
+
+    // Генеруємо прев’ю
+    selectedFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPreviews((prev) => [...prev, reader.result]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
   const fetchAnswers = async () => {
     const data = await fetchWithAuth(`/answers?task_id=${taskId}`);
     const correctAnswerId = data.find((i) => i.is_correct)?.id;
@@ -41,49 +63,86 @@ export default function Answers() {
   const handleSetCorrectAnswer = async (taskId, answerId) => {
     try {
       setLoadingAnswerId(answerId);
+
       await fetchWithAuth(`/tasks/${taskId}/correct`, {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           answer_id: answerId,
         }),
       });
 
-      setCorrectAnswer(answerId);
-      setLoadingAnswerId(null);
+      await fetchAnswers(); // 🔥 ОНОВЛЮЄМО СПИСОК
+
     } catch (err) {
       console.error(err);
     } finally {
       setLoadingAnswerId(null);
     }
   };
+  const OpenChange = () => {
+    setError("");
+    setOpen(true);
+
+  };
+  const CloseChange = () => {
+    setOpen(false);
+    setError("");
+  }
 
   useEffect(() => {
     fetchAnswers();
   }, [taskId]);
 
   const handleSubmit = async () => {
-    if (!answerText.trim()) {
-      alert("Введіть відповідь!");
-      return;
-    }
-
     try {
-      await fetchWithAuth("/answers", {
+      const text = editorRef.current?.textContent;
+
+      if (!text.trim()) {
+        alert("Контент порожній");
+        return;
+      }
+
+      setSubmitting(true); // 🔥 старт лоадера
+
+      const modData = await fetchWithAuth("/ai/moderation", {
         method: "POST",
-        body: JSON.stringify({
-          answer: answerText,
-          task_id: taskId,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
       });
 
-      setAnswerText("");
+      if (modData?.flagged) {
+        setError("Текст не дозволено використовувати");
+        setSubmitting(false);
+        return;
+      }
+
+      const body = new FormData();
+      body.append("answer", text);
+      body.append("task_id", taskId);
+      files.forEach((file) => body.append("photos", file));
+
+      await fetchWithAuth("/answers", {
+        method: "POST",
+        body,
+      });
+
+      await fetchAnswers();
+
+      editorRef.current.innerHTML = "";
+      setFiles([]);
+      setError("");
+      setPreviews([]);
       setOpen(false);
-      fetchAnswers();
-    } catch (error) {
-      console.error("Помилка при збереженні:", error);
-      alert("Сталася помилка при збереженні");
+
+    } catch (err) {
+      console.error(err);
+      alert("Сталася помилка при збереженні: " + err.message);
+    } finally {
+      setSubmitting(false); // 🔥 зупинка лоадера
     }
   };
+
 
   return (
     <Box>
@@ -244,93 +303,168 @@ export default function Answers() {
             >
               <AddIcon />
             </Fab>
+
           </Box>
 
-          <IconButton sx={{ color: "black" }}>
-            <SearchIcon />
-          </IconButton>
+          <Button component={Link} to={`/generation/${taskId}`}
+            sx={{
+              backgroundColor: "black",
+              color: "white",
+
+            }}>Закріплення</Button>
+
         </Box>
       </AppBar>
-      <Modal open={open}>
-        <>
+      <Modal open={open} onClose={CloseChange}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 450,
+            height: 400,
+            bgcolor: "background.paper",
+            borderRadius: 3,
+            boxShadow: 24,
+            p: 3,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+            <Typography sx={{ fontSize: 22, fontWeight: 700 }}>
+              Нове завдання
+            </Typography>
+          </Box>
+          <Box sx={{ position: "fixed", top: 2, right: 2 }}>
+            <IconButton onClick={CloseChange}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+
           <Box
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            placeholder="Введіть задачу"
             sx={{
-              position: "fixed",
-              inset: 0,
-              backdropFilter: "blur(3px)",
+              minHeight: 150,
+              border: "1px solid #ccc",
+              backgroundColor: "#f3f2f2",
+              p: 1.5,
+              outline: "none",
+              overflowY: "auto",
+              fontSize: 16,
+              fontFamily: "Roboto",
+              "&:empty:before": {
+                content: '"Введіть задачу"',
+                color: "#999",
+                fontFamily: "Roboto"
+
+              },
             }}
           />
 
-          <Box
-            sx={{
-              position: "fixed",
-              width: "500px",
-              height: "400px",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              backgroundColor: "white",
-              borderRadius: "10px",
-              maxWidth: 400,
-            }}
-          >
-            <Button
-              sx={{ color: "black", marginLeft: "350px" }}
-              onClick={() => setOpen(false)}
-            >
-              <CloseIcon />
-            </Button>
-            <Typography
-              sx={{
-                marginTop: "5px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "25px",
-                fontWeight: 700,
-              }}
-            >
-              Дайте відповідь
-            </Typography>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
-              <TextField
-                multiline
-                placeholder="Введіть відповідь"
-                rows={5}
-                value={answerText}
-                onChange={(e) => setAnswerText(e.target.value)}
-                variant="filled"
-                sx={{
-                  marginTop: "20px",
-                  width: "350px",
-                }}
-              />
+
+          {previews.length > 0 && (
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              {previews.map((src, i) => (
+                <Box
+                  key={i}
+                  sx={{
+                    position: "relative",
+                    width: 56,
+                    height: 56,
+                    borderRadius: 1,
+                    border: "1px solid #ccc",
+                    overflow: "hidden",
+                  }}
+                >
+                  <img
+                    src={src}
+                    alt={`preview-${i}`}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      // Видаляємо прев’ю за індексом
+                      setPreviews((prev) => prev.filter((_, index) => index !== i));
+                      // Якщо зберігаєш файли окремо, видали і їх з масиву files (якщо є)
+                      setFiles((prev) => prev.filter((_, index) => index !== i));
+                    }}
+                    sx={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      bgcolor: "rgba(255,255,255,0.7)",
+                      "&:hover": { bgcolor: "rgba(255,0,0,0.8)", color: "white" },
+                    }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              ))}
             </Box>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
-              <Button
-                onClick={handleSubmit}
-                sx={{
-                  marginTop: "20px",
-                  backgroundColor: "black",
-                  color: "white",
-                }}
-              >
-                Відправити
-              </Button>
-            </Box>
+          )}
+
+          {/* Actions */}
+
+          <Box sx={{ position: "relative" }}>
+            <input
+              type="file"
+              id="upload-photo"
+              hidden
+              multiple
+              accept="image/*"
+              onChange={handleFiles}
+            />
+            <Box sx={{ position: "absolute", right: 0 }}>
+              <IconButton component="label" htmlFor="upload-photo" sx={{ color: "black" }}>
+                <AddToPhotosIcon />
+              </IconButton></Box>
           </Box>
-        </>
+
+          <Box sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center", mt: -2
+          }}>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={submitting}
+              sx={{
+                bgcolor: "black",
+                borderRadius: 1,
+                minWidth: 140,
+                "&:hover": { bgcolor: "#222" },
+              }}
+            >
+              {submitting ? (
+                <CircularProgress size={22} sx={{ color: "white" }} />
+              ) : (
+                "Відправити"
+              )}
+            </Button>
+
+          </Box>
+
+
+          {/* Errors */}
+          {error && (
+            <Typography color="error" fontSize={14}>
+              {error}
+            </Typography>
+          )}
+        </Box>
       </Modal>
+
     </Box>
   );
 }

@@ -1,40 +1,45 @@
-const API_URL = "http://localhost:5000";
+export const API_URL = "http://localhost:5000";
+export const UPLOADS_URL = "http://localhost:5000/uploads";
 
 export const fetchWithAuth = async (endpoint, options = {}) => {
   const token = localStorage.getItem("access_token");
 
+  const headers = {
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
+  };
+
+  // Якщо заголовок Content-Type вже заданий — не міняємо
+  if (!headers["Content-Type"] && !(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
+    headers,
   });
+
+
 
   if (!response.ok) {
     let data = null;
 
-    // пробуємо прочитати body (може бути json)
     try {
       data = await response.clone().json();
     } catch (e) {
-      // якщо не json - ігноруємо
     }
 
-    // flask-jwt-extended зазвичай повертає 401 + msg
     if (
       response.status === 401 &&
       data?.msg === "Token has expired"
     ) {
       localStorage.removeItem("access_token");
 
-      // редірект на /login
-      window.location.href = "/login";
-      return; // важливо: щоб далі код не виконувався
+      window.location.href = "/";
+      return;
     }
 
-    // інакше — стандартна помилка
+
     throw new Error(data?.msg || "Request failed");
   }
 

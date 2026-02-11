@@ -13,8 +13,9 @@ import PropTypes from "prop-types";
 import { fetchWithAuth } from "./helpers/api";
 import { Button, IconButton, Typography } from "@mui/material";
 import Pagination from "@mui/material/Pagination";
+import TaskImages from "./Images"
 
-export default function TabPanel({ value, tabValue, subjectId, search }) {
+export default function TabPanel({ value, tabValue, subjectId, search, refreshKey }) {
   const isActive = String(value) === String(tabValue);
 
   const [tasks, setTasks] = useState([]);
@@ -28,7 +29,6 @@ export default function TabPanel({ value, tabValue, subjectId, search }) {
 
   const totalPages = Math.max(1, Math.ceil(count / perPage));
 
-  // коли перемикаємо subject — стартуємо з 1 сторінки
   useEffect(() => {
     if (!isActive) return;
     setPage(1);
@@ -57,14 +57,12 @@ export default function TabPanel({ value, tabValue, subjectId, search }) {
 
         if (cancelled) return;
 
-        // ✅ ВАЖЛИВО: тут саме під { count, items }
         const items = Array.isArray(data?.items) ? data.items : [];
         const totalCount = Number.isFinite(data?.count) ? data.count : 0;
-
+        console.log(items, "items")
         setTasks(items);
         setCount(totalCount);
 
-        // якщо page виліз за totalPages — підрівняти
         const pages = Math.max(1, Math.ceil(totalCount / perPage));
         if (page > pages) setPage(pages);
       } catch (e) {
@@ -79,7 +77,7 @@ export default function TabPanel({ value, tabValue, subjectId, search }) {
     return () => {
       cancelled = true;
     };
-  }, [isActive, subjectId, page, perPage, search]);
+  }, [isActive, subjectId, page, perPage, search, refreshKey]);
 
   return (
     <div role="tabpanel" hidden={!isActive} id={`tabpanel-${tabValue}`}>
@@ -127,107 +125,67 @@ export default function TabPanel({ value, tabValue, subjectId, search }) {
 
           {!loading && !error && tasks.length > 0 && (
             <>
-              <List sx={{ width: "100%" }}>
-                {tasks.map(({ id, primary, secondary, person, task, user }) => (
-                  <React.Fragment key={id}>
-                    <ListItemButton
-                      sx={{
-                        alignItems: "flex-start",
-                        borderRadius: 3,
-                        mb: 2,
-                        p: 2,
-                        backgroundColor: "#ffffff",
-                        border: "1px solid rgba(0,0,0,0.06)",
-                        boxShadow: "0 10px 24px rgba(0,0,0,0.06)",
-                        transition:
-                          "transform 120ms ease, box-shadow 120ms ease",
-                        "&:hover": {
-                          backgroundColor: "#fbfbff",
-                          transform: "translateY(-1px)",
-                          boxShadow: "0 14px 32px rgba(0,0,0,0.08)",
-                        },
-                      }}
-                    >
-                      <ListItemAvatar sx={{ minWidth: 56, mt: 0.5 }}>
-                        <Avatar
-                          alt="Profile Picture"
-                          src={person}
-                          sx={{
-                            width: 44,
-                            height: 44,
-                            border: "2px solid rgba(52,49,219,0.15)",
-                          }}
-                        />
-                      </ListItemAvatar>
+              <List sx={{ width: "100%", backgroundColor: "#f9f9f9", borderRadius: 2 }}>
+                {tasks.map(({ id, primary, secondary, person, task, user, image_url }) => (
+                  <ListItemButton key={id} sx={{
+                    padding: 2,
+                    backgroundColor: "#fff",
+                    borderRadius: 2,
+                    boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)",
+                    mb: 1,
+                    "&:hover": { backgroundColor: "rgba(52, 49, 219, 0.08)" },
+                  }}>
+                    <ListItemAvatar sx={{ minWidth: 56, mt: 0.5 }}>
+                      <Avatar
+                        alt="Profile Picture"
+                        src={person}
+                        sx={{
+                          width: 44,
+                          height: 44,
+                          border: "2px solid rgba(52,49,219,0.15)",
+                          backgroundColor: "#e0e0e0",
+                        }}
+                      />
+                    </ListItemAvatar>
 
-                      <Box sx={{ width: "100%" }}>
-                        <Typography
+                    <Box sx={{ width: "100%" }}>
+                      <Typography sx={{ color: "#3431db", fontWeight: 800, fontSize: 14, mb: 0.25 }}>
+                        {user?.name || "Без імені"}
+                      </Typography>
+
+                      <Typography sx={{ fontSize: 14, mb: 1, color: "#111", lineHeight: 1.4, wordBreak: "break-word" }}>
+                        {task}
+                      </Typography>
+
+                      {image_url.length > 0 && <TaskImages images={image_url} />}
+
+                      <ListItemText
+                        primary={primary}
+                        secondary={secondary}
+                        primaryTypographyProps={{ fontSize: 13, fontWeight: 700, color: "#222" }}
+                        secondaryTypographyProps={{ fontSize: 13, color: "#666" }}
+                        sx={{ m: 0 }}
+                      />
+
+                      <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1.5 }}>
+                        <Button
+                          component={Link}
+                          to={`/answer/${id}`}
+                          variant="text"
                           sx={{
                             color: "#3431db",
-                            fontFamily: "Roboto",
                             fontWeight: 800,
-                            fontSize: 14,
-                            mb: 0.25,
+                            textTransform: "none",
+                            borderRadius: 2,
+                            px: 1.5,
+                            "&:hover": { backgroundColor: "rgba(52,49,219,0.08)" },
                           }}
                         >
-                          {user?.name || "Без імені"}
-                        </Typography>
-
-                        <Typography
-                          sx={{
-                            fontSize: 14,
-                            mb: 1,
-                            color: "#111",
-                            lineHeight: 1.4,
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {task}
-                        </Typography>
-
-                        <ListItemText
-                          primary={primary}
-                          secondary={secondary}
-                          primaryTypographyProps={{
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: "#222",
-                          }}
-                          secondaryTypographyProps={{
-                            fontSize: 13,
-                            color: "#666",
-                          }}
-                          sx={{ m: 0 }}
-                        />
-
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            mt: 1.5,
-                          }}
-                        >
-                          <Button
-                            component={Link}
-                            to={`/answer/${id}`}
-                            variant="text"
-                            sx={{
-                              color: "#3431db",
-                              fontWeight: 800,
-                              textTransform: "none",
-                              borderRadius: 2,
-                              px: 1.5,
-                              "&:hover": {
-                                backgroundColor: "rgba(52,49,219,0.08)",
-                              },
-                            }}
-                          >
-                            Перейти до відповідей →
-                          </Button>
-                        </Box>
+                          Перейти до відповідей →
+                        </Button>
                       </Box>
-                    </ListItemButton>
-                  </React.Fragment>
+                    </Box>
+                  </ListItemButton>
                 ))}
               </List>
               <Box
@@ -243,8 +201,9 @@ export default function TabPanel({ value, tabValue, subjectId, search }) {
             </>
           )}
         </Box>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 }
 
@@ -255,4 +214,5 @@ TabPanel.propTypes = {
   subjectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
     .isRequired,
   search: PropTypes.string,
+  refreshKey: PropTypes.number,
 };
