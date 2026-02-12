@@ -45,7 +45,6 @@ function TaskImages({ images }) {
         ))}
       </Box>
 
-      {/* Модальне вікно для повного перегляду */}
       <Modal open={open} onClose={handleClose}>
         <Box
           sx={{

@@ -67,7 +67,6 @@ export default function Rating() {
                 <TableRow>
                   <TableCell sx={{ fontWeight: 800 }}>#</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Користувач</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Email</TableCell>
                   <TableCell sx={{ fontWeight: 800 }} align="right">
                     Правильні відповіді
                   </TableCell>
@@ -79,7 +78,6 @@ export default function Rating() {
                   <TableRow key={u.user_id ?? idx} hover>
                     <TableCell>{idx + 1}</TableCell>
                     <TableCell>{u.name || "Без імені"}</TableCell>
-                    <TableCell>{u.email || "-"}</TableCell>
                     <TableCell align="right">
                       {u.correct_answers ?? 0}
                     </TableCell>

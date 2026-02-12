@@ -219,7 +219,7 @@ export default function ColorTabs() {
     >
       <Box sx={{ minWidth: 260, borderRight: 1, borderColor: "divider" }}>
         <Typography sx={{ marginTop: 2, fontWeight: 800, fontSize: 25 }}>
-          Subjects
+          Предмети
         </Typography>
 
         {loading && (
