@@ -336,7 +336,7 @@ export default function Answers() {
 
           <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
             <Typography sx={{ fontSize: 22, fontWeight: 700 }}>
-              Нове завдання
+              Дати відповідь
             </Typography>
           </Box>
           <Box sx={{ position: "fixed", top: 2, right: 2 }}>
@@ -350,7 +350,7 @@ export default function Answers() {
             ref={editorRef}
             contentEditable
             suppressContentEditableWarning
-            placeholder="Введіть задачу"
+            placeholder="Відповіді"
             sx={{
               minHeight: 150,
               border: "1px solid #ccc",
@@ -361,7 +361,7 @@ export default function Answers() {
               fontSize: 16,
               fontFamily: "Roboto",
               "&:empty:before": {
-                content: '"Введіть задачу"',
+                content: '"Відповідь"',
                 color: "#999",
                 fontFamily: "Roboto"
 
