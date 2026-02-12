@@ -217,7 +217,6 @@ export default function Answers() {
                     {answer}
 
                   </Typography>
-                  {console.log("image_url", image_url)}
                   {image_url?.map((photo, index) => (
                     <img
                       key={index}
