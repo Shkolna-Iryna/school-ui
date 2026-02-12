@@ -22,6 +22,8 @@ import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import CircularProgress from "@mui/material/CircularProgress";
 import AddToPhotosIcon from '@mui/icons-material/AddToPhotos';
+import { UPLOADS_URL } from "./helpers/api";
+import TaskImages from "./Images"
 
 export default function Answers() {
   const { taskId } = useParams();
@@ -156,7 +158,7 @@ export default function Answers() {
             answer,
             task_id,
             user,
-            is_correct,
+            is_correct, image_url = []
           }) => (
             <React.Fragment key={id}>
               <ListItemButton
@@ -213,7 +215,27 @@ export default function Answers() {
                     }}
                   >
                     {answer}
+
                   </Typography>
+                  {console.log("image_url", image_url)}
+                  {image_url?.map((photo, index) => (
+                    <img
+                      key={index}
+                      src={`${UPLOADS_URL}/${photo}`}
+                      alt="answer"
+                      style={{
+                        width: 80,
+                        height: 80,
+                        objectFit: "cover",
+                        borderRadius: 6,
+                        marginTop: 8
+                      }}
+                    />
+                  ))}
+
+                  {image_url?.length > 0 && (
+                    <TaskImages images={image_url} />
+                  )}
 
                   {/* primary/secondary */}
                   <ListItemText
