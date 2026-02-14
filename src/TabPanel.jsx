@@ -188,16 +188,35 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
                   </ListItemButton>
                 ))}
               </List>
-              <Box
-                sx={{ display: "flex", justifyContent: "center", mt: 2, pb: 2 }}
-              >
+
+              <Box sx={{ display: "flex", justifyContent: "center", mt: 2, pb: 2 }}>
+                {/* Пагінація */}
                 <Pagination
                   page={page}
                   count={totalPages}
                   onChange={(e, newPage) => setPage(newPage)}
                   shape="rounded"
-                />
-              </Box>
+                  sx={{
+                    "& .MuiPaginationItem-root": {
+                      backgroundColor: "#e9ecef",
+                      borderRadius: 2,
+                      minWidth: 40,
+                      height: 40,
+                      fontWeight: 600,
+                      color: "#333",
+                    },
+
+                    "& .Mui-selected": {
+                      backgroundColor: "#d0d5da",
+                      color: "#000",
+                    },
+
+                    "& .MuiPaginationItem-previousNext": {
+                      backgroundColor: "#e9ecef",
+                    },
+                  }}
+                /></Box>
+
             </>
           )}
         </Box>

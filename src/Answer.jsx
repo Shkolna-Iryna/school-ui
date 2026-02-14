@@ -217,20 +217,7 @@ export default function Answers() {
                     {answer}
 
                   </Typography>
-                  {image_url?.map((photo, index) => (
-                    <img
-                      key={index}
-                      src={`${UPLOADS_URL}/${photo}`}
-                      alt="answer"
-                      style={{
-                        width: 80,
-                        height: 80,
-                        objectFit: "cover",
-                        borderRadius: 6,
-                        marginTop: 8
-                      }}
-                    />
-                  ))}
+
 
                   {image_url?.length > 0 && (
                     <TaskImages images={image_url} />
