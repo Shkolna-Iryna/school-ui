@@ -4,6 +4,7 @@ import Register from "./Register.jsx";
 import Answers from "./Answer.jsx";
 import Login from "./Login.jsx";
 import Rating from "./Rating.jsx";
+import UsersPage from "./Users.jsx";
 import TestPage from "./GeneratePage.jsx";
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
         <Route path="sign_in" element={<Register />} />
         <Route path="sub" element={<ColorTabs />} />
         <Route path="rating" element={<Rating />} />
+        <Route path="users" element={<UsersPage />} />
         <Route path="/generation/:taskId" element={<TestPage />} />
       </Routes>
     </Router>

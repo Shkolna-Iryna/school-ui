@@ -305,7 +305,7 @@ export default function ColorTabs() {
           height: "80px",
         }}
       >
-        <Box>
+        <Box sx={{ display: "flex", gap: 2, mt: "20px", ml: "20px" }}>
           <Button
             component={Link}
             to="/rating"
@@ -313,12 +313,23 @@ export default function ColorTabs() {
             sx={{
               backgroundColor: "black",
               borderRadius: "12px",
-              mt: "20px",
-              ml: "20px",
               fontWeight: 800,
             }}
           >
             Рейтинг
+          </Button>
+
+          <Button
+            component={Link}
+            to="/users"
+            variant="contained"
+            sx={{
+              backgroundColor: "black",
+              borderRadius: "12px",
+              fontWeight: 800,
+            }}
+          >
+            Користувачі
           </Button>
         </Box>
         <Box

@@ -24,6 +24,15 @@ const Login = () => {
     mode: "onSubmit",
   });
 
+  const decodeToken = (token) => {
+  try {
+    const payload = token.split(".")[1];
+    return JSON.parse(atob(payload));
+  } catch {
+    return null;
+  }
+};
+
   useEffect(() => {
     document.body.style.background = "#f8fdfd";
 
@@ -42,6 +51,11 @@ const Login = () => {
       });
 
       localStorage.setItem("access_token", response.access_token);
+
+      const user = decodeToken(response.access_token);
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    }
       navigate("/sub");
     } catch (err) {
       alert(err.message);
