@@ -11,7 +11,7 @@ import Fab from "@mui/material/Fab";
 import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
 import IconButton from "@mui/material/IconButton";
-import { Modal, Box, TextField, Button } from "@mui/material";
+import { Modal, Box, Grid, TextField, Button } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { Link } from "react-router-dom";
 import { InputAdornment } from "@mui/material";
@@ -19,8 +19,20 @@ import ClearIcon from "@mui/icons-material/Clear";
 import CircularProgress from "@mui/material/CircularProgress";
 import AddToPhotosIcon from '@mui/icons-material/AddToPhotos';
 import SendIcon from '@mui/icons-material/Send';
+import SpeedDial from '@mui/material/SpeedDial';
+import SpeedDialIcon from '@mui/material/SpeedDialIcon';
+import SpeedDialAction from '@mui/material/SpeedDialAction';
+import FileCopyIcon from '@mui/icons-material/FileCopyOutlined';
+import SaveIcon from '@mui/icons-material/Save';
+import PrintIcon from '@mui/icons-material/Print';
+import ShareIcon from '@mui/icons-material/Share';
+import CheckIcon from "@mui/icons-material/Check";
+import VoiceRecorder from "./Voices";
+import TaskFiles from "./TaskFiles";
+
 
 export default function ColorTabs() {
+  const editorRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
   const [value, setValue] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -33,19 +45,20 @@ export default function ColorTabs() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [text, setText] = useState("");
   const [files, setFiles] = useState([]);
-  const editorRef = useRef(null);
   const [previews, setPreviews] = useState([]);
   const [testResult, setTestResult] = useState("");
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
+  const [voiceFiles, setVoiceFiles] = useState([]);
+  const [voicePreviews, setVoicePreviews] = useState([]);
 
   const handleFiles = (e) => {
     const selectedFiles = Array.from(e.target.files);
 
     setFiles((prev) => [...prev, ...selectedFiles]);
 
-    // Генеруємо прев’ю
     selectedFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -54,6 +67,21 @@ export default function ColorTabs() {
       reader.readAsDataURL(file);
     });
   };
+  const handleVoiceFiles = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+
+    setVoiceFiles([file]);
+
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setVoicePreviews([reader.result]);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const OpenChange = () => {
     setError("");
     setOpen(true);
@@ -62,6 +90,8 @@ export default function ColorTabs() {
   const CloseChange = () => {
     setOpen(false);
     setError("");
+    setShowAlert(false);
+
   }
 
   useEffect(() => {
@@ -106,11 +136,11 @@ export default function ColorTabs() {
       const text = editorRef.current?.textContent;
 
       if (!text.trim()) {
-        alert("Контент порожній");
+        setShowAlert(true);
         return;
       }
-
-      setSubmitting(true); // 🔥 старт спінера
+      setShowAlert(false);
+      setSubmitting(true);
 
       const modData = await fetchWithAuth("/ai/moderation", {
         method: "POST",
@@ -128,6 +158,9 @@ export default function ColorTabs() {
       body.append("task", text);
       body.append("subject_id", value);
       files.forEach((file) => body.append("photos", file));
+      if (voiceFiles[0]) {
+        body.append("voice", voiceFiles[0]); // ключ "voice", бо сервер очікує одне поле
+      }
 
       await fetchWithAuth("/tasks", {
         method: "POST",
@@ -145,7 +178,7 @@ export default function ColorTabs() {
       console.error(err);
       alert("Сталася помилка при збереженні: " + err.message);
     } finally {
-      setSubmitting(false); // 🔥 зупиняємо спінер
+      setSubmitting(false);
     }
   };
 
@@ -166,14 +199,11 @@ export default function ColorTabs() {
     try {
       const res = await createSubject(title);
 
-      // 🔥 Додаємо новий предмет у список
       setSubjects(prev => [...prev, res]);
 
-      setMessage("Предмет створено ✅");
       setTitle("");
 
     } catch (error) {
-      setMessage("Помилка створення ❌");
       console.error(error);
     }
   };
@@ -188,8 +218,8 @@ export default function ColorTabs() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          text: text,              // текст з інпуту
-          questions_count: 10       // кількість питань
+          text: text,
+          questions_count: 10
         }),
       });
 
@@ -234,7 +264,6 @@ export default function ColorTabs() {
           </Box>
         )}
 
-        {!loading && error && <Alert severity="error">{error}</Alert>}
 
         {!loading && !error && (
           <Tabs
@@ -282,7 +311,7 @@ export default function ColorTabs() {
             to="/rating"
             variant="contained"
             sx={{
-              backgroundColor: "#111",
+              backgroundColor: "black",
               borderRadius: "12px",
               mt: "20px",
               ml: "20px",
@@ -349,7 +378,7 @@ export default function ColorTabs() {
             left: "50%",
             transform: "translate(-50%, -50%)",
             width: 450,
-            height: 400,
+            height: 500,
             bgcolor: "background.paper",
             borderRadius: 3,
             boxShadow: 24,
@@ -357,9 +386,10 @@ export default function ColorTabs() {
             display: "flex",
             flexDirection: "column",
             gap: 2,
+            overflowY: "auto"
           }}
         >
-
+          {/* Заголовок */}
           <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
             <Typography sx={{ fontSize: 22, fontWeight: 700 }}>
               Нове завдання
@@ -371,9 +401,10 @@ export default function ColorTabs() {
             </IconButton>
           </Box>
 
-
+          {/* Текст завдання */}
           <Box
             ref={editorRef}
+            component="div"
             contentEditable
             suppressContentEditableWarning
             placeholder="Введіть задачу"
@@ -390,12 +421,11 @@ export default function ColorTabs() {
                 content: '"Введіть задачу"',
                 color: "#999",
                 fontFamily: "Roboto"
-
               },
             }}
           />
 
-
+          {/* Превʼю Фото */}
           {previews.length > 0 && (
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
               {previews.map((src, i) => (
@@ -415,13 +445,10 @@ export default function ColorTabs() {
                     alt={`preview-${i}`}
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
-
                   <IconButton
                     size="small"
                     onClick={() => {
-                      // Видаляємо прев’ю за індексом
                       setPreviews((prev) => prev.filter((_, index) => index !== i));
-                      // Якщо зберігаєш файли окремо, видали і їх з масиву files (якщо є)
                       setFiles((prev) => prev.filter((_, index) => index !== i));
                     }}
                     sx={{
@@ -439,9 +466,20 @@ export default function ColorTabs() {
             </Box>
           )}
 
-          {/* Actions */}
 
-          <Box sx={{ position: "relative" }}>
+          {voiceFiles[0] && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
+              <audio controls src={URL.createObjectURL(voiceFiles[0])} />
+              <IconButton
+                size="small"
+                onClick={() => setVoiceFiles([])}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          )}
+
+          <Box sx={{ display: "flex", justifyContent: "center", gap: 1, mt: 2 }}>
             <input
               type="file"
               id="upload-photo"
@@ -450,17 +488,17 @@ export default function ColorTabs() {
               accept="image/*"
               onChange={handleFiles}
             />
-            <Box sx={{ position: "absolute", right: 0 }}>
-              <IconButton component="label" htmlFor="upload-photo" sx={{ color: "black" }}>
-                <AddToPhotosIcon />
-              </IconButton></Box>
-          </Box>
+            <IconButton component="label" htmlFor="upload-photo" sx={{ color: "black" }}>
+              <AddToPhotosIcon />
+            </IconButton>
 
-          <Box sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center", mt: -2
-          }}>
+            <VoiceRecorder
+              onSend={(blob) => {
+                setVoiceFiles([blob]);
+              }}
+            />
+          </Box>
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
             <Button
               variant="contained"
               onClick={handleSubmit}
@@ -472,25 +510,14 @@ export default function ColorTabs() {
                 "&:hover": { bgcolor: "#222" },
               }}
             >
-              {submitting ? (
-                <CircularProgress size={22} sx={{ color: "white" }} />
-              ) : (
-                "Відправити"
-              )}
+              {submitting ? <CircularProgress size={22} sx={{ color: "white" }} /> : "Відправити"}
             </Button>
-
           </Box>
 
-
-          {/* Errors */}
-          {error && (
-            <Typography color="error" fontSize={14}>
-              {error}
-            </Typography>
-          )}
+          {showAlert && <Alert severity="warning">Введіть текст</Alert>}
+          {error && <Typography color="error">{error}</Typography>}
         </Box>
       </Modal>
-
 
 
       <Box sx={{ flex: 1 }}>

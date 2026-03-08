@@ -45,7 +45,6 @@ export default function Answers() {
     const selectedFiles = Array.from(e.target.files);
     setFiles((prev) => [...prev, ...selectedFiles]);
 
-    // Генеруємо прев’ю
     selectedFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -74,7 +73,7 @@ export default function Answers() {
         }),
       });
 
-      await fetchAnswers(); // 🔥 ОНОВЛЮЄМО СПИСОК
+      await fetchAnswers();
 
     } catch (err) {
       console.error(err);
@@ -105,7 +104,7 @@ export default function Answers() {
         return;
       }
 
-      setSubmitting(true); // 🔥 старт лоадера
+      setSubmitting(true);
 
       const modData = await fetchWithAuth("/ai/moderation", {
         method: "POST",
@@ -141,7 +140,7 @@ export default function Answers() {
       console.error(err);
       alert("Сталася помилка при збереженні: " + err.message);
     } finally {
-      setSubmitting(false); // 🔥 зупинка лоадера
+      setSubmitting(false);
     }
   };
 
@@ -168,14 +167,8 @@ export default function Answers() {
                   mb: 2,
                   p: 2,
                   backgroundColor: "#ffffff",
-                  border: "1px solid rgba(0,0,0,0.06)",
-                  boxShadow: "0 10px 24px rgba(0,0,0,0.06)",
-                  transition: "transform 120ms ease, box-shadow 120ms ease",
-                  "&:hover": {
-                    backgroundColor: "#fbfbff",
-                    transform: "translateY(-1px)",
-                    boxShadow: "0 14px 32px rgba(0,0,0,0.08)",
-                  },
+                  boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)",
+
                 }}
               >
                 <ListItemAvatar sx={{ minWidth: 56, mt: 0.5 }}>
@@ -185,13 +178,12 @@ export default function Answers() {
                     sx={{
                       width: 44,
                       height: 44,
-                      border: "2px solid rgba(52,49,219,0.15)",
+                      border: "2px solid #3431DB"
                     }}
                   />
                 </ListItemAvatar>
 
                 <Box sx={{ width: "100%" }}>
-                  {/* Ім'я */}
                   <Typography
                     sx={{
                       color: "#3431db",
@@ -204,12 +196,11 @@ export default function Answers() {
                     {user?.name || "Без імені"}
                   </Typography>
 
-                  {/* Текст задачі */}
                   <Typography
                     sx={{
                       fontSize: 14,
                       mb: 1,
-                      color: "#111",
+                      color: "black",
                       lineHeight: 1.4,
                       wordBreak: "break-word",
                     }}
@@ -223,7 +214,6 @@ export default function Answers() {
                     <TaskImages images={image_url} />
                   )}
 
-                  {/* primary/secondary */}
                   <ListItemText
                     primary={primary}
                     secondary={secondary}

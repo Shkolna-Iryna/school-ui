@@ -3,7 +3,7 @@ import { Box, Modal, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { UPLOADS_URL } from "./helpers/api";
 
-function TaskImages({ images }) {
+export default function TaskImages({ images }) {
   const [open, setOpen] = useState(false);
   const [currentImg, setCurrentImg] = useState(null);
 
@@ -19,7 +19,7 @@ function TaskImages({ images }) {
 
   return (
     <>
-      {/* Превʼю маленькі */}
+
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
         {images.map((url, i) => (
           <Box
@@ -52,7 +52,7 @@ function TaskImages({ images }) {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            bgcolor: "rgba(0,0,0,0.9)",
+            bgcolor: "black",
             width: "90%",
             height: "90%",
             display: "flex",
@@ -87,4 +87,3 @@ function TaskImages({ images }) {
   );
 }
 
-export default TaskImages;

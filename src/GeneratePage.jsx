@@ -64,7 +64,7 @@ const TestPage = () => {
 
     const handleChange = (index, value) => {
         const updated = [...answers];
-        updated[index] = value; // тепер це число
+        updated[index] = value; 
         setAnswers(updated);
     };
 

@@ -14,7 +14,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
 const Register = () => {
-  const [action, setAction] = useState("Зареєструватись");
+
   const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();

@@ -120,7 +120,6 @@ export default function Rating() {
               </Table>
             </TableContainer>
             <Box sx={{ display: "flex", justifyContent: "center", mt: 2, pb: 2 }}>
-              {/* Пагінація */}
               <Pagination
                 count={pages}
                 page={page}

@@ -10,7 +10,6 @@ export const fetchWithAuth = async (endpoint, options = {}) => {
     ...options.headers,
   };
 
-  // Якщо заголовок Content-Type вже заданий — не міняємо
   if (!headers["Content-Type"] && !(options.body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
