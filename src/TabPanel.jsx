@@ -5,6 +5,11 @@ import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 import TaskImages from "./Images";
 import { fetchWithAuth } from "./helpers/api";
+import { UPLOADS_URL } from "./helpers/api";
+import DeleteIcon from '@mui/icons-material/Delete';
+import { display } from "@mui/system";
+import IconButton from "@mui/material/IconButton";
+
 
 export default function TabPanel({ value, tabValue, subjectId, search, refreshKey }) {
   const isActive = String(value) === String(tabValue);
@@ -56,7 +61,7 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
       }
     };
     const handleSend = (blob) => {
-      const url = URL.createObjectURL(blob); // створюємо URL для відтворення
+      const url = URL.createObjectURL(blob);
       setAudioURL(url);
     };
 
@@ -64,11 +69,9 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
     return () => { cancelled = true; };
   }, [isActive, subjectId, page, perPage, search, refreshKey]);
 
-  // Працює для відтворення голосових з сервера
   const getVoiceURL = (voicePath) => {
     if (!voicePath) return null;
-    // тут підставляєш свій бекенд
-    return `http://localhost:5000${voicePath}`;
+    return `${UPLOADS_URL}/${voicePath}`
   };
 
   return (
@@ -84,7 +87,10 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
           {!loading && !error && tasks.length > 0 && (
             <List sx={{ width: "100%", backgroundColor: "#f9f9f9", borderRadius: 2 }}>
               {tasks.map(({ id, primary, secondary, person, task, user, image_url, voice_url }) => (
-                <ListItemButton key={id} sx={{ mb: 1, borderRadius: 2, backgroundColor: "#fff", padding: 2 }}>
+                <ListItemButton key={id} sx={{
+                  mb: 1, borderRadius: 2, backgroundColor: "#fff", padding: 2, position: "relative",
+                  gap: 2
+                }}>
                   <ListItemAvatar sx={{ minWidth: 56, mt: 0.5 }}>
                     <Avatar
                       alt="Profile Picture"
@@ -95,17 +101,15 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
 
                   <Box sx={{ width: "100%" }}>
                     <Typography sx={{ color: "#3431db", fontWeight: 800, fontSize: 14, mb: 0.25 }}>
-                      {user?.name || "Без імені"}
+                      {user.name}
                     </Typography>
 
                     <Typography sx={{ fontSize: 14, mb: 1, color: "#111", lineHeight: 1.4, wordBreak: "break-word" }}>
                       {task}
                     </Typography>
 
-                    {/* Фотки */}
                     {image_url?.length > 0 && <TaskImages images={image_url} />}
 
-                    {/* Голосові */}
                     {voice_url && (
                       <Box sx={{ mt: 1 }}>
                         <audio
@@ -147,7 +151,6 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
             </List>
           )}
 
-          {/* Пагінація */}
           {!loading && !error && tasks.length > 0 && (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
               <Pagination

@@ -24,6 +24,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import AddToPhotosIcon from '@mui/icons-material/AddToPhotos';
 import { UPLOADS_URL } from "./helpers/api";
 import TaskImages from "./Images"
+import VoiceRecorder from "./Voices";
 
 export default function Answers() {
   const { taskId } = useParams();
@@ -391,9 +392,7 @@ export default function Answers() {
                   <IconButton
                     size="small"
                     onClick={() => {
-                      // Видаляємо прев’ю за індексом
                       setPreviews((prev) => prev.filter((_, index) => index !== i));
-                      // Якщо зберігаєш файли окремо, видали і їх з масиву files (якщо є)
                       setFiles((prev) => prev.filter((_, index) => index !== i));
                     }}
                     sx={{
@@ -413,7 +412,7 @@ export default function Answers() {
 
           {/* Actions */}
 
-          <Box sx={{ position: "relative" }}>
+          <Box sx={{ display: "flex", mt: 1, justifyContent: "flex-end", gap: 1 }}>
             <input
               type="file"
               id="upload-photo"
@@ -422,10 +421,12 @@ export default function Answers() {
               accept="image/*"
               onChange={handleFiles}
             />
-            <Box sx={{ position: "absolute", right: 0 }}>
-              <IconButton component="label" htmlFor="upload-photo" sx={{ color: "black" }}>
-                <AddToPhotosIcon />
-              </IconButton></Box>
+
+            <IconButton component="label" htmlFor="upload-photo" sx={{ color: "black" }}>
+              <AddToPhotosIcon />
+            </IconButton>
+            <VoiceRecorder onSend={(blob) => setVoiceFiles([blob])} />
+
           </Box>
 
           <Box sx={{

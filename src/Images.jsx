@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Box, Modal, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { UPLOADS_URL } from "./helpers/api";
+import SecureImage from "./components/SecureImage"
 
 export default function TaskImages({ images }) {
   const [open, setOpen] = useState(false);
@@ -36,11 +37,7 @@ export default function TaskImages({ images }) {
             }}
             onClick={() => handleOpen(url)}
           >
-            <img
-              src={`${UPLOADS_URL}/${url}`}
-              alt={`task-${i}`}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
+            <SecureImage src={`${UPLOADS_URL}/${url}`} />
           </Box>
         ))}
       </Box>
@@ -63,11 +60,13 @@ export default function TaskImages({ images }) {
         >
           {currentImg && (
             <>
-              <img
+              {/* <img
                 src={`${UPLOADS_URL}/${currentImg}`}
                 alt="full-screen"
                 style={{ maxWidth: "100%", maxHeight: "100%" }}
-              />
+              /> */}
+              66666666666666
+              <SecureImage src={`${UPLOADS_URL}/${currentImg}`} />
               <IconButton
                 onClick={handleClose}
                 sx={{

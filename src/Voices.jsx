@@ -44,7 +44,7 @@ export default function VoiceRecorder({ onSend }) {
     return (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             {!recording ? (
-                <IconButton color="primary" onClick={startRecording}>
+                <IconButton color="black" onClick={startRecording}>
                     <MicIcon />
                 </IconButton>
             ) : (

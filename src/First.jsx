@@ -29,6 +29,7 @@ import ShareIcon from '@mui/icons-material/Share';
 import CheckIcon from "@mui/icons-material/Check";
 import VoiceRecorder from "./Voices";
 import TaskFiles from "./TaskFiles";
+import SecureImage from "./components/SecureImage"
 
 
 export default function ColorTabs() {
@@ -159,7 +160,7 @@ export default function ColorTabs() {
       body.append("subject_id", value);
       files.forEach((file) => body.append("photos", file));
       if (voiceFiles[0]) {
-        body.append("voice", voiceFiles[0]); // ключ "voice", бо сервер очікує одне поле
+        body.append("voice", voiceFiles[0]);
       }
 
       await fetchWithAuth("/tasks", {
@@ -388,8 +389,8 @@ export default function ColorTabs() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: 450,
-            height: 500,
+            width: 450,       // ширина
+            height: 400,      // менша висота → більш квадратна форма
             bgcolor: "background.paper",
             borderRadius: 3,
             boxShadow: 24,
@@ -397,30 +398,31 @@ export default function ColorTabs() {
             display: "flex",
             flexDirection: "column",
             gap: 2,
-            overflowY: "auto"
+            overflowY: "auto",
           }}
         >
           {/* Заголовок */}
-          <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
             <Typography sx={{ fontSize: 22, fontWeight: 700 }}>
               Нове завдання
             </Typography>
           </Box>
-          <Box sx={{ position: "fixed", top: 2, right: 2 }}>
+
+          {/* Кнопка закриття */}
+          <Box sx={{ position: "absolute", top: 8, right: 8 }}>
             <IconButton onClick={CloseChange}>
               <CloseIcon />
             </IconButton>
           </Box>
 
-          {/* Текст завдання */}
+          {/* Редактор тексту */}
           <Box
             ref={editorRef}
             component="div"
             contentEditable
             suppressContentEditableWarning
-            placeholder="Введіть задачу"
             sx={{
-              minHeight: 150,
+              minHeight: 150,       // зменшено висоту
               border: "1px solid #ccc",
               backgroundColor: "#f3f2f2",
               p: 1.5,
@@ -431,12 +433,12 @@ export default function ColorTabs() {
               "&:empty:before": {
                 content: '"Введіть задачу"',
                 color: "#999",
-                fontFamily: "Roboto"
+                fontFamily: "Roboto",
               },
             }}
           />
 
-          {/* Превʼю Фото */}
+          {/* Прев’ю фото */}
           {previews.length > 0 && (
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
               {previews.map((src, i) => (
@@ -456,6 +458,7 @@ export default function ColorTabs() {
                     alt={`preview-${i}`}
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
+                  {/* <SecureImage src={`${UPLOADS_URL}/${image}`} /> */}
                   <IconButton
                     size="small"
                     onClick={() => {
@@ -477,20 +480,18 @@ export default function ColorTabs() {
             </Box>
           )}
 
-
+          {/* Голосове повідомлення */}
           {voiceFiles[0] && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
               <audio controls src={URL.createObjectURL(voiceFiles[0])} />
-              <IconButton
-                size="small"
-                onClick={() => setVoiceFiles([])}
-              >
+              <IconButton size="small" onClick={() => setVoiceFiles([])}>
                 <CloseIcon fontSize="small" />
               </IconButton>
             </Box>
           )}
 
-          <Box sx={{ display: "flex", justifyContent: "center", gap: 1, mt: 2 }}>
+          {/* Додавання файлів та запис голосу */}
+          <Box sx={{ display: "flex", mt: 1, justifyContent: "flex-end", gap: 1 }}>
             <input
               type="file"
               id="upload-photo"
@@ -503,13 +504,11 @@ export default function ColorTabs() {
               <AddToPhotosIcon />
             </IconButton>
 
-            <VoiceRecorder
-              onSend={(blob) => {
-                setVoiceFiles([blob]);
-              }}
-            />
+            <VoiceRecorder onSend={(blob) => setVoiceFiles([blob])} />
           </Box>
-          <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+
+          {/* Кнопка відправки */}
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
             <Button
               variant="contained"
               onClick={handleSubmit}
@@ -525,6 +524,7 @@ export default function ColorTabs() {
             </Button>
           </Box>
 
+          {/* Попередження і помилки */}
           {showAlert && <Alert severity="warning">Введіть текст</Alert>}
           {error && <Typography color="error">{error}</Typography>}
         </Box>
