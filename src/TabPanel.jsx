@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Box, List, ListItemButton, ListItemAvatar, Avatar, Typography, Button, ListItemText, CircularProgress, Alert, Pagination } from "@mui/material";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
@@ -9,6 +9,8 @@ import { UPLOADS_URL } from "./helpers/api";
 import DeleteIcon from '@mui/icons-material/Delete';
 import { display } from "@mui/system";
 import IconButton from "@mui/material/IconButton";
+import SecureAudio from "./components/SecureAudio"
+import { getCurrentUser } from "./helpers";
 
 
 export default function TabPanel({ value, tabValue, subjectId, search, refreshKey }) {
@@ -20,8 +22,9 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [audioURL, setAudioURL] = useState(null);
-
-
+  const currentUser = getCurrentUser();
+  const isAdmin = currentUser?.role === "admin";
+  const isTeacher = currentUser?.role === "teacher"
   const totalPages = Math.max(1, Math.ceil(count / perPage));
 
   useEffect(() => {
@@ -69,10 +72,6 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
     return () => { cancelled = true; };
   }, [isActive, subjectId, page, perPage, search, refreshKey]);
 
-  const getVoiceURL = (voicePath) => {
-    if (!voicePath) return null;
-    return `${UPLOADS_URL}/${voicePath}`
-  };
 
   return (
     <div role="tabpanel" hidden={!isActive} id={`tabpanel-${tabValue}`}>
@@ -87,7 +86,8 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
           {!loading && !error && tasks.length > 0 && (
             <List sx={{ width: "100%", backgroundColor: "#f9f9f9", borderRadius: 2 }}>
               {tasks.map(({ id, primary, secondary, person, task, user, image_url, voice_url }) => (
-                <ListItemButton key={id} sx={{
+
+                < ListItemButton key={id} sx={{
                   mb: 1, borderRadius: 2, backgroundColor: "#fff", padding: 2, position: "relative",
                   gap: 2
                 }}>
@@ -95,15 +95,34 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
                     <Avatar
                       alt="Profile Picture"
                       src={person}
-                      sx={{ width: 44, height: 44, border: "2px solid rgba(52,49,219,0.15)", backgroundColor: "#e0e0e0" }}
+                      sx={{ width: 44, height: 44, border: `2px solid ${user.role === "teacher" ? "#4231db" : "rgba(255, 255, 255, 0.15)"}`, backgroundColor: "#e0e0e0" }}
                     />
                   </ListItemAvatar>
 
                   <Box sx={{ width: "100%" }}>
-                    <Typography sx={{ color: "#3431db", fontWeight: 800, fontSize: 14, mb: 0.25 }}>
-                      {user.name}
-                    </Typography>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                      <Typography sx={{ color: "#3431db", fontWeight: 800, fontSize: 14 }}>
+                        {user.name}
+                      </Typography>
 
+                      {(isAdmin || currentUser.sub === user.id) && (
+                        <IconButton
+                          color="error"
+                          onClick={async () => {
+                            if (!window.confirm("Видалити це завдання?")) return;
+
+                            try {
+                              await fetchWithAuth(`/tasks/${id}`, { method: "DELETE" });
+                              setTasks((prev) => prev.filter((t) => t.id !== id));
+                            } catch (err) {
+                              alert("Не вдалося видалити завдання: " + err.message);
+                            }
+                          }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
+                    </Box>
                     <Typography sx={{ fontSize: 14, mb: 1, color: "#111", lineHeight: 1.4, wordBreak: "break-word" }}>
                       {task}
                     </Typography>
@@ -112,11 +131,9 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
 
                     {voice_url && (
                       <Box sx={{ mt: 1 }}>
-                        <audio
-                          controls
-                          src={getVoiceURL(voice_url)}
-                          style={{ width: 220 }}
-                        />
+
+                        <SecureAudio src={`${UPLOADS_URL}/${voice_url}`} />
+
                       </Box>
                     )}
 
@@ -144,7 +161,10 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
                       >
                         Перейти до відповідей →
                       </Button>
+
                     </Box>
+
+
                   </Box>
                 </ListItemButton>
               ))}
@@ -162,8 +182,9 @@ export default function TabPanel({ value, tabValue, subjectId, search, refreshKe
             </Box>
           )}
         </Box>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 }
 
@@ -173,4 +194,4 @@ TabPanel.propTypes = {
   subjectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   search: PropTypes.string,
   refreshKey: PropTypes.number
-};
+}; 

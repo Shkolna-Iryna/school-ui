@@ -1,6 +1,6 @@
 import React from "react";
 import { useParams } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import IconButton from "@mui/material/IconButton";
 import AddIcon from "@mui/icons-material/Add";
 import TextField from "@mui/material/TextField";
@@ -25,6 +25,11 @@ import AddToPhotosIcon from '@mui/icons-material/AddToPhotos';
 import { UPLOADS_URL } from "./helpers/api";
 import TaskImages from "./Images"
 import VoiceRecorder from "./Voices";
+import DeleteIcon from '@mui/icons-material/Delete';
+import { getCurrentUser } from "./helpers";
+import SecureAudio from "./components/SecureAudio"
+
+
 
 export default function Answers() {
   const { taskId } = useParams();
@@ -40,6 +45,10 @@ export default function Answers() {
   const [text, setText] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [voiceFiles, setVoiceFiles] = useState([]);
+  const [voicePreviews, setVoicePreviews] = useState([]);
+  const currentUser = getCurrentUser();
+  const isAdmin = currentUser?.role === "admin";
 
 
   const handleFiles = (e) => {
@@ -54,6 +63,19 @@ export default function Answers() {
       reader.readAsDataURL(file);
     });
   };
+  const handleVoiceFiles = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setVoiceFiles([file]);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setVoicePreviews([reader.result]);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const fetchAnswers = async () => {
     const data = await fetchWithAuth(`/answers?task_id=${taskId}`);
     const correctAnswerId = data.find((i) => i.is_correct)?.id;
@@ -87,10 +109,15 @@ export default function Answers() {
     setOpen(true);
 
   };
+
   const CloseChange = () => {
     setOpen(false);
     setError("");
-  }
+    setFiles([]);
+    setPreviews([]);
+    setVoiceFiles([]);
+    if (editorRef.current) editorRef.current.innerHTML = "";
+  };
 
   useEffect(() => {
     fetchAnswers();
@@ -118,11 +145,49 @@ export default function Answers() {
         setSubmitting(false);
         return;
       }
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("image", file);
+
+        const imageMod = await fetchWithAuth("/ai/moderate-image", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (imageMod?.flagged) {
+          setError("Одна з картинок містить заборонений контент");
+          setSubmitting(false);
+          return;
+        }
+      }
+      for (const voiceFile of voiceFiles) {
+        const formData = new FormData();
+        formData.append("audio", voiceFile);
+
+        const voiceMod = await fetchWithAuth("/ai/moderate-voice", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (voiceMod?.flagged) {
+          setError("Голосове повідомлення містить заборонений контент");
+          setSubmitting(false);
+          return;
+        }
+      }
+
+
 
       const body = new FormData();
       body.append("answer", text);
       body.append("task_id", taskId);
       files.forEach((file) => body.append("photos", file));
+      if (voiceFiles[0]) {
+        body.append("voice", voiceFiles[0]);
+      }
+      setFiles([]);        // очищаємо файли
+      setPreviews([]);     // очищаємо прев’ю
+      setVoiceFiles([]);
 
       await fetchWithAuth("/answers", {
         method: "POST",
@@ -133,6 +198,7 @@ export default function Answers() {
 
       editorRef.current.innerHTML = "";
       setFiles([]);
+      setVoiceFiles([]);
       setError("");
       setPreviews([]);
       setOpen(false);
@@ -144,6 +210,11 @@ export default function Answers() {
       setSubmitting(false);
     }
   };
+  const handleSend = (blob) => {
+    const url = URL.createObjectURL(blob);
+    setAudioURL(url);
+  };
+
 
 
   return (
@@ -158,7 +229,9 @@ export default function Answers() {
             answer,
             task_id,
             user,
-            is_correct, image_url = []
+            is_correct,
+            image_url = [],
+            voice_url
           }) => (
             <React.Fragment key={id}>
               <ListItemButton
@@ -169,7 +242,7 @@ export default function Answers() {
                   p: 2,
                   backgroundColor: "#ffffff",
                   boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)",
-
+                  position: "relative"
                 }}
               >
                 <ListItemAvatar sx={{ minWidth: 56, mt: 0.5 }}>
@@ -179,8 +252,9 @@ export default function Answers() {
                     sx={{
                       width: 44,
                       height: 44,
-                      border: "2px solid #3431DB"
+                      border: `2px solid ${user.role === "teacher" ? "#4231db" : "rgba(255, 255, 255, 0.15)"}`,
                     }}
+
                   />
                 </ListItemAvatar>
 
@@ -207,13 +281,16 @@ export default function Answers() {
                     }}
                   >
                     {answer}
-
                   </Typography>
 
+                  {image_url?.length > 0 && <TaskImages images={image_url} />}
+                  {voice_url && (
+                    <Box sx={{ mt: 1 }}>
 
-                  {image_url?.length > 0 && (
-                    <TaskImages images={image_url} />
+                      <SecureAudio src={`${UPLOADS_URL}/${voice_url}`} />
+                    </Box>
                   )}
+
 
                   <ListItemText
                     primary={primary}
@@ -229,13 +306,9 @@ export default function Answers() {
                     }}
                     sx={{ m: 0 }}
                   />
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      mt: 1.5,
-                    }}
-                  >
+
+                  <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1.5, gap: 1 }}>
+                    {/* Кнопка переходу до завдань */}
                     <Button
                       component={Link}
                       to="/sub"
@@ -246,15 +319,18 @@ export default function Answers() {
                         textTransform: "none",
                         borderRadius: 2,
                         px: 1.5,
-                        "&:hover": {
-                          backgroundColor: "rgba(52,49,219,0.08)",
-                        },
+                        "&:hover": { backgroundColor: "rgba(52,49,219,0.08)" },
                       }}
                     >
                       Перейти до завдань →
                     </Button>
                   </Box>
+
+
+
+
                 </Box>
+
                 {correctAnswer === id ? (
                   <FavoriteIcon />
                 ) : (
@@ -262,17 +338,28 @@ export default function Answers() {
                     onClick={() => handleSetCorrectAnswer(task_id, id)}
                     disabled={loadingAnswerId === id}
                   >
-                    {loadingAnswerId === id ? (
-                      <CircularProgress size={18} />
-                    ) : (
-                      <FavoriteBorderIcon />
-                    )}
+                    {loadingAnswerId === id ? <CircularProgress size={18} /> : <FavoriteBorderIcon />}
+                  </IconButton>
+                )}
+                {(isAdmin || currentUser.sub == user.id) && (
+                  <IconButton
+                    color="error"
+                    onClick={async () => {
+                      if (!window.confirm("Ви впевнені, що хочете видалити цю відповідь?")) return;
+                      try {
+                        await fetchWithAuth(`/answers/${id}`, { method: "DELETE" });
+                        fetchAnswers();
+                      } catch (err) {
+                        alert("Не вдалося видалити відповідь: " + err.message);
+                      }
+                    }}
+                  >
+                    <DeleteIcon />
                   </IconButton>
                 )}
               </ListItemButton>
             </React.Fragment>
-          )
-        )}
+          ))}
       </List>
       <AppBar
         position="fixed"
@@ -330,9 +417,9 @@ export default function Answers() {
             display: "flex",
             flexDirection: "column",
             gap: 2,
+            overflowY: "auto",
           }}
         >
-
           <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
             <Typography sx={{ fontSize: 22, fontWeight: 700 }}>
               Дати відповідь
@@ -407,6 +494,14 @@ export default function Answers() {
                   </IconButton>
                 </Box>
               ))}
+            </Box>
+          )}
+          {voiceFiles[0] && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
+              <audio controls src={URL.createObjectURL(voiceFiles[0])} />
+              <IconButton size="small" onClick={() => setVoiceFiles([])}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
             </Box>
           )}
 

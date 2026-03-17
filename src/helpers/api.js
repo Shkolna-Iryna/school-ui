@@ -46,3 +46,20 @@ export const fetchWithAuth = async (endpoint, options = {}) => {
 
   return response.json();
 };
+
+export const fetchBlob = async (url) => {
+  const token = localStorage.getItem("access_token");
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to load file");
+  }
+
+  return await res.blob();
+}

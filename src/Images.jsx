@@ -60,12 +60,6 @@ export default function TaskImages({ images }) {
         >
           {currentImg && (
             <>
-              {/* <img
-                src={`${UPLOADS_URL}/${currentImg}`}
-                alt="full-screen"
-                style={{ maxWidth: "100%", maxHeight: "100%" }}
-              /> */}
-              66666666666666
               <SecureImage src={`${UPLOADS_URL}/${currentImg}`} />
               <IconButton
                 onClick={handleClose}

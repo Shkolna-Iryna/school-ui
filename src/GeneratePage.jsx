@@ -64,7 +64,7 @@ const TestPage = () => {
 
     const handleChange = (index, value) => {
         const updated = [...answers];
-        updated[index] = value; 
+        updated[index] = value;
         setAnswers(updated);
     };
 

@@ -20,6 +20,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Stack from "@mui/material/Stack";
 import EditIcon from "@mui/icons-material/Edit";
 import { fetchWithAuth } from "./helpers/api";
+import { getCurrentUser, ROLE_OPTIONS } from "./helpers";
 
 const ROLE_LABELS = {
   admin: "Адмін",
@@ -27,17 +28,8 @@ const ROLE_LABELS = {
   student: "Учень",
 };
 
-const ROLE_OPTIONS = ["admin", "teacher", "student"];
+// const ROLE_OPTIONS = ["admin", "teacher", "student"];
 const ROWS_PER_PAGE = 10;
-
-function getCurrentUser() {
-  try {
-    const raw = localStorage.getItem("user");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
 
 function getUserId(user) {
   return user?.id ?? user?.user_id ?? null;
@@ -144,7 +136,9 @@ export default function Rating() {
       } catch (e) {
         setRows((prev) =>
           prev.map((user) =>
-            getUserId(user) === targetUserId ? { ...user, role: prevRole } : user
+            getUserId(user) === targetUserId
+              ? { ...user, role: prevRole }
+              : user
           )
         );
         setError(e?.message || "Не вдалося змінити роль");
@@ -242,7 +236,9 @@ export default function Rating() {
               </Table>
             </TableContainer>
 
-            <Box sx={{ display: "flex", justifyContent: "center", mt: 2, pb: 2 }}>
+            <Box
+              sx={{ display: "flex", justifyContent: "center", mt: 2, pb: 2 }}
+            >
               <Pagination
                 count={pages}
                 page={page}

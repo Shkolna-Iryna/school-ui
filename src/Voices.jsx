@@ -23,7 +23,7 @@ export default function VoiceRecorder({ onSend }) {
                 const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
                 const url = URL.createObjectURL(blob);
                 setAudioURL(url);
-                onSend(blob); // передаємо батьківському компоненту
+                onSend(blob);
             };
 
             mediaRecorderRef.current.start();
@@ -52,13 +52,9 @@ export default function VoiceRecorder({ onSend }) {
                     <StopIcon />
                 </IconButton>
             )}
-            {audioURL && (
-                <audio
-                    controls
-                    src={audioURL}
-                    style={{ maxWidth: 200, height: "30px" }}
-                />
-            )}
+
+
+
         </Box>
     );
 }

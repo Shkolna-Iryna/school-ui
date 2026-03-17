@@ -1,31 +1,23 @@
 import { useEffect, useState } from "react";
-const API_URL = import.meta.env.VITE_API_URL;
-
-export const UPLOADS_URL = `${API_URL}/uploads`;
+import { fetchBlob } from "../helpers/api";
 
 export default function SecureImage({ src }) {
     const [img, setImg] = useState(null);
 
     useEffect(() => {
+        let objectUrl;
+
         const loadImage = async () => {
-            const token = localStorage.getItem("access_token");
-
-            const res = await fetch(src, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            const blob = await res.blob();
-
-            const url = URL.createObjectURL(blob);
-
-            setImg(url);
+            const blob = await fetchBlob(src);
+            objectUrl = URL.createObjectURL(blob);
+            setImg(objectUrl);
         };
 
         loadImage();
+
+        return () => {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
     }, [src]);
 
     if (!img) return null;

@@ -1,9 +1,8 @@
 import React from "react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Typography from "@mui/material/Typography";
-import Alert from "@mui/material/Alert";
 import { fetchWithAuth } from "./helpers/api";
 import TabPanel from "./TabPanel";
 import { AppBar } from "@mui/material";
@@ -17,20 +16,11 @@ import { Link } from "react-router-dom";
 import { InputAdornment } from "@mui/material";
 import ClearIcon from "@mui/icons-material/Clear";
 import CircularProgress from "@mui/material/CircularProgress";
-import AddToPhotosIcon from '@mui/icons-material/AddToPhotos';
-import SendIcon from '@mui/icons-material/Send';
-import SpeedDial from '@mui/material/SpeedDial';
-import SpeedDialIcon from '@mui/material/SpeedDialIcon';
-import SpeedDialAction from '@mui/material/SpeedDialAction';
-import FileCopyIcon from '@mui/icons-material/FileCopyOutlined';
-import SaveIcon from '@mui/icons-material/Save';
-import PrintIcon from '@mui/icons-material/Print';
-import ShareIcon from '@mui/icons-material/Share';
-import CheckIcon from "@mui/icons-material/Check";
-import VoiceRecorder from "./Voices";
-import TaskFiles from "./TaskFiles";
-import SecureImage from "./components/SecureImage"
+import AddToPhotosIcon from "@mui/icons-material/AddToPhotos";
+import SendIcon from "@mui/icons-material/Send";
 
+import VoiceRecorder from "./Voices";
+import { getCurrentUser } from "./helpers";
 
 export default function ColorTabs() {
   const editorRef = useRef(null);
@@ -51,9 +41,12 @@ export default function ColorTabs() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [showAlert, setShowAlert] = useState(false);
   const [voiceFiles, setVoiceFiles] = useState([]);
   const [voicePreviews, setVoicePreviews] = useState([]);
+  const currentUser = getCurrentUser();
+
+  const canEditSubject = ["teacher", "admin"].includes(currentUser?.role);
+
 
   const handleFiles = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -72,9 +65,7 @@ export default function ColorTabs() {
     const file = e.target.files[0];
     if (!file) return;
 
-
     setVoiceFiles([file]);
-
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -86,14 +77,15 @@ export default function ColorTabs() {
   const OpenChange = () => {
     setError("");
     setOpen(true);
-
   };
   const CloseChange = () => {
     setOpen(false);
     setError("");
-    setShowAlert(false);
-
-  }
+    setFiles([]);
+    setPreviews([]);
+    setVoiceFiles([]);
+    if (editorRef.current) editorRef.current.innerHTML = ""; // очищаємо текст
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -112,7 +104,6 @@ export default function ColorTabs() {
 
           if (safe.length > 0) setValue(String(safe[0].id));
           else setValue("");
-
         }
       } catch (e) {
         if (!cancelled)
@@ -137,12 +128,14 @@ export default function ColorTabs() {
       const text = editorRef.current?.textContent;
 
       if (!text.trim()) {
-        setShowAlert(true);
+        alert("Контент порожній");
+
         return;
       }
-      setShowAlert(false);
+
       setSubmitting(true);
 
+      // 🔹 1. МОДЕРАЦІЯ ТЕКСТУ
       const modData = await fetchWithAuth("/ai/moderation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -155,19 +148,59 @@ export default function ColorTabs() {
         return;
       }
 
+      // 🔹 2. МОДЕРАЦІЯ КАРТИНОК (FormData!)
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("image", file);
+
+        const imageMod = await fetchWithAuth("/ai/moderate-image", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (imageMod?.flagged) {
+          setError("Одна з картинок містить заборонений контент");
+          setSubmitting(false);
+          return;
+        }
+      }
+      for (const voiceFile of voiceFiles) {
+        const formData = new FormData();
+        formData.append("audio", voiceFile);
+
+        const voiceMod = await fetchWithAuth("/ai/moderate-voice", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (voiceMod?.flagged) {
+          setError("Голосове повідомлення містить заборонений контент");
+          setSubmitting(false);
+          return;
+        }
+      }
+
+
+      // 🔹 3. ВІДПРАВКА ДАНИХ
       const body = new FormData();
       body.append("task", text);
       body.append("subject_id", value);
+
       files.forEach((file) => body.append("photos", file));
+
       if (voiceFiles[0]) {
         body.append("voice", voiceFiles[0]);
       }
+      setFiles([]);
+      setPreviews([]);
+      setVoiceFiles([]);
 
       await fetchWithAuth("/tasks", {
         method: "POST",
         body,
       });
 
+      // 🔹 4. RESET
       editorRef.current.innerHTML = "";
       setFiles([]);
       setError("");
@@ -182,8 +215,6 @@ export default function ColorTabs() {
       setSubmitting(false);
     }
   };
-
-
   const createSubject = async (title) => {
     return await fetchWithAuth("/subjects", {
       method: "POST",
@@ -200,42 +231,11 @@ export default function ColorTabs() {
     try {
       const res = await createSubject(title);
 
-      setSubjects(prev => [...prev, res]);
+      setSubjects((prev) => [...prev, res]);
 
       setTitle("");
-
     } catch (error) {
       console.error(error);
-    }
-  };
-  const handleGenerateTest = async () => {
-    try {
-      setError("");
-      setLoading(true);
-
-      const response = await fetchWithAuth("/ai/generate-test", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: text,
-          questions_count: 10
-        }),
-      });
-
-      if (response.error) {
-        setError(response.error);
-        return;
-      }
-
-      const parsedTest = JSON.parse(response.test);
-      setTest(parsedTest);
-
-    } catch (err) {
-      setError("Помилка генерації тесту");
-    } finally {
-      setLoading(false);
     }
   };
   return (
@@ -265,7 +265,6 @@ export default function ColorTabs() {
           </Box>
         )}
 
-
         {!loading && !error && (
           <Tabs
             orientation="vertical"
@@ -284,17 +283,22 @@ export default function ColorTabs() {
                   fontFamily: "Roboto",
                   fontSize: 20,
                 }}
-
               />
             ))}
           </Tabs>
-
         )}
-        <TextField placeholder="Додати предмет" value={title}
-          onChange={(e) => setTitle(e.target.value)} sx={{ mt: 2, width: "50" }}>
-        </TextField>
-        <IconButton onClick={handleCreate}
-        ><SendIcon sx={{ color: "black", mt: 3 }} /></IconButton>
+        {canEditSubject &&
+          <><TextField
+            placeholder="Додати предмет"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            sx={{ mt: 2, width: "50" }}
+          ></TextField>
+            <IconButton onClick={handleCreate}>
+              <SendIcon sx={{ color: "black", mt: 3 }} />
+            </IconButton></>
+        }
+
       </Box>
 
       <AppBar
@@ -319,19 +323,20 @@ export default function ColorTabs() {
           >
             Рейтинг
           </Button>
-
-          <Button
-            component={Link}
-            to="/users"
-            variant="contained"
-            sx={{
-              backgroundColor: "black",
-              borderRadius: "12px",
-              fontWeight: 800,
-            }}
-          >
-            Користувачі
-          </Button>
+          {getCurrentUser()?.role === "admin" && (
+            <Button
+              component={Link}
+              to="/users"
+              variant="contained"
+              sx={{
+                backgroundColor: "black",
+                borderRadius: "12px",
+                fontWeight: 800,
+              }}
+            >
+              Користувачі
+            </Button>
+          )}
         </Box>
         <Box
           sx={{
@@ -389,8 +394,8 @@ export default function ColorTabs() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: 450,       // ширина
-            height: 400,      // менша висота → більш квадратна форма
+            width: 450,
+            height: 400,
             bgcolor: "background.paper",
             borderRadius: 3,
             boxShadow: 24,
@@ -401,28 +406,25 @@ export default function ColorTabs() {
             overflowY: "auto",
           }}
         >
-          {/* Заголовок */}
           <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
             <Typography sx={{ fontSize: 22, fontWeight: 700 }}>
               Нове завдання
             </Typography>
           </Box>
 
-          {/* Кнопка закриття */}
           <Box sx={{ position: "absolute", top: 8, right: 8 }}>
             <IconButton onClick={CloseChange}>
               <CloseIcon />
             </IconButton>
           </Box>
 
-          {/* Редактор тексту */}
           <Box
             ref={editorRef}
             component="div"
             contentEditable
             suppressContentEditableWarning
             sx={{
-              minHeight: 150,       // зменшено висоту
+              minHeight: 150,
               border: "1px solid #ccc",
               backgroundColor: "#f3f2f2",
               p: 1.5,
@@ -438,7 +440,6 @@ export default function ColorTabs() {
             }}
           />
 
-          {/* Прев’ю фото */}
           {previews.length > 0 && (
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
               {previews.map((src, i) => (
@@ -456,21 +457,31 @@ export default function ColorTabs() {
                   <img
                     src={src}
                     alt={`preview-${i}`}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
                   />
-                  {/* <SecureImage src={`${UPLOADS_URL}/${image}`} /> */}
                   <IconButton
                     size="small"
                     onClick={() => {
-                      setPreviews((prev) => prev.filter((_, index) => index !== i));
-                      setFiles((prev) => prev.filter((_, index) => index !== i));
+                      setPreviews((prev) =>
+                        prev.filter((_, index) => index !== i)
+                      );
+                      setFiles((prev) =>
+                        prev.filter((_, index) => index !== i)
+                      );
                     }}
                     sx={{
                       position: "absolute",
                       top: 0,
                       right: 0,
                       bgcolor: "rgba(255,255,255,0.7)",
-                      "&:hover": { bgcolor: "rgba(255,0,0,0.8)", color: "white" },
+                      "&:hover": {
+                        bgcolor: "rgba(255,0,0,0.8)",
+                        color: "white",
+                      },
                     }}
                   >
                     <CloseIcon fontSize="small" />
@@ -480,7 +491,6 @@ export default function ColorTabs() {
             </Box>
           )}
 
-          {/* Голосове повідомлення */}
           {voiceFiles[0] && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
               <audio controls src={URL.createObjectURL(voiceFiles[0])} />
@@ -490,8 +500,9 @@ export default function ColorTabs() {
             </Box>
           )}
 
-          {/* Додавання файлів та запис голосу */}
-          <Box sx={{ display: "flex", mt: 1, justifyContent: "flex-end", gap: 1 }}>
+          <Box
+            sx={{ display: "flex", mt: 1, justifyContent: "flex-end", gap: 1 }}
+          >
             <input
               type="file"
               id="upload-photo"
@@ -500,15 +511,18 @@ export default function ColorTabs() {
               accept="image/*"
               onChange={handleFiles}
             />
-            <IconButton component="label" htmlFor="upload-photo" sx={{ color: "black" }}>
+            <IconButton
+              component="label"
+              htmlFor="upload-photo"
+              sx={{ color: "black" }}
+            >
               <AddToPhotosIcon />
             </IconButton>
 
             <VoiceRecorder onSend={(blob) => setVoiceFiles([blob])} />
           </Box>
 
-          {/* Кнопка відправки */}
-          <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
+          <Box sx={{ display: "flex", justifyContent: "center", mt: -3 }}>
             <Button
               variant="contained"
               onClick={handleSubmit}
@@ -520,16 +534,17 @@ export default function ColorTabs() {
                 "&:hover": { bgcolor: "#222" },
               }}
             >
-              {submitting ? <CircularProgress size={22} sx={{ color: "white" }} /> : "Відправити"}
+              {submitting ? (
+                <CircularProgress size={22} sx={{ color: "white" }} />
+              ) : (
+                "Відправити"
+              )}
             </Button>
           </Box>
 
-          {/* Попередження і помилки */}
-          {showAlert && <Alert severity="warning">Введіть текст</Alert>}
           {error && <Typography color="error">{error}</Typography>}
         </Box>
       </Modal>
-
 
       <Box sx={{ flex: 1 }}>
         {subjects.map((subject) => (
